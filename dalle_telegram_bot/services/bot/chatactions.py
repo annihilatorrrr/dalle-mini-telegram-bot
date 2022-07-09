@@ -17,7 +17,7 @@ class ActionManager:
         self._bot = bot
         self._settings = settings
 
-        self._chatids_events: Dict[int, Event] = dict()
+        self._chatids_events: Dict[int, Event] = {}
         self._chatids_counter = Counter()
         self._chatids_counter_lock = Lock()
 
@@ -40,9 +40,8 @@ class ActionManager:
         Decrease the counter; if just one action was running for the chat, stop it."""
         do_stop = False
         with self._chatids_counter_lock:
-            if self.get_count(chat_id):
-                if not self.decrease(chat_id):
-                    do_stop = True
+            if self.get_count(chat_id) and not self.decrease(chat_id):
+                do_stop = True
 
         if do_stop:
             # run the stop outside the counter lock
@@ -66,8 +65,7 @@ class ActionManager:
         current = self.get_count(chat_id)
         if current <= 0:
             del self._chatids_counter[chat_id]
-        if current < 0:
-            current = 0
+        current = max(current, 0)
         return current
 
     def _start_action_thread(self, chat_id: int):
@@ -89,8 +87,7 @@ class ActionManager:
 
     def _stop_action_thread(self, chat_id: int):
         """Stop the action thread for a chat_id. The chat_id MUST be currently running an action."""
-        event = self._chatids_events.pop(chat_id, None)
-        if event:
+        if event := self._chatids_events.pop(chat_id, None):
             event.set()
 
     def _action_worker(self, request_id: str, chat_id: int, event: Event):
